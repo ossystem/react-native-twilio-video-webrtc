@@ -158,6 +158,17 @@ RCT_EXPORT_METHOD(flipCamera) {
   }
 }
 
+RCT_EXPORT_METHOD(setBackCamera) {
+    if (self.camera.source == TVICameraCaptureSourceFrontCamera) {
+        [self.camera selectSource:TVICameraCaptureSourceBackCameraWide];
+        if (self.localVideoTrack) {
+            for (TVIVideoView *r in self.localVideoTrack.renderers) {
+                r.mirror = NO;
+            }
+        }
+    }
+}
+
 -(void)convertBaseTrackStats:(TVIBaseTrackStats *)stats result:(NSMutableDictionary *)result {
   result[@"trackId"] = stats.trackId;
   result[@"packetsLost"] = @(stats.packetsLost);
