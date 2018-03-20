@@ -105,7 +105,7 @@ RCT_EXPORT_METHOD(startLocalVideo:(BOOL)screenShare) {
 
     self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.screen enabled:YES constraints:[self videoConstraints]];
   } else if ([TVICameraCapturer availableSources].count > 0) {
-    self.camera = [[TVICameraCapturer alloc] init];
+    self.camera = [[TVICameraCapturer alloc] initWithSource:1];
     self.camera.delegate = self;
 
     self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.camera enabled:YES constraints:[self videoConstraints]];
