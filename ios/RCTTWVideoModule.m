@@ -33,6 +33,7 @@ static NSString* statsReceived                = @"statsReceived";
 @property (strong, nonatomic) TVICameraCapturer *camera;
 @property (strong, nonatomic) TVIScreenCapturer *screen;
 @property (strong, nonatomic) TVILocalVideoTrack* localVideoTrack;
+@property (strong, nonatomic) TVILocalVideoTrack* localScreenTrack;
 @property (strong, nonatomic) TVILocalAudioTrack* localAudioTrack;
 @property (strong, nonatomic) TVIRoom *room;
 
@@ -99,7 +100,18 @@ RCT_EXPORT_MODULE();
 }
 
 RCT_EXPORT_METHOD(startLocalVideo:(BOOL)screenShare) {
-  if (screenShare) {
+  UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
+  self.screen = [[TVIScreenCapturer alloc] initWithView:rootViewController.view];
+
+  self.localScreenTrack = [TVILocalVideoTrack trackWithCapturer:self.screen enabled:NO constraints:[self videoConstraints]];
+
+  if ([TVICameraCapturer availableSources].count > 0) {
+    self.camera = [[TVICameraCapturer alloc] init];
+    self.camera.delegate = self;
+
+    self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.camera enabled:YES constraints:[self videoConstraints]];
+  }
+  /*if (screenShare) {
     UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
     self.screen = [[TVIScreenCapturer alloc] initWithView:rootViewController.view];
 
@@ -109,7 +121,7 @@ RCT_EXPORT_METHOD(startLocalVideo:(BOOL)screenShare) {
     self.camera.delegate = self;
 
     self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.camera enabled:YES constraints:[self videoConstraints]];
-  }
+  }*/
 }
 
 RCT_EXPORT_METHOD(startLocalAudio) {
@@ -139,6 +151,12 @@ RCT_REMAP_METHOD(setLocalVideoEnabled, enabled:(BOOL)enabled setLocalVideoEnable
   resolve(@(enabled));
 }
 
+RCT_REMAP_METHOD(setLocalScreenEnabled, enabled:(BOOL)enabled setLocalScreenEnabledWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  [self.localScreenTrack setEnabled:enabled];
+
+  resolve(@(enabled));
+}
 
 RCT_EXPORT_METHOD(flipCamera) {
   if (self.camera.source == TVICameraCaptureSourceFrontCamera) {
@@ -267,7 +285,7 @@ RCT_EXPORT_METHOD(getStats) {
 RCT_EXPORT_METHOD(connect:(NSString *)accessToken roomName:(NSString *)roomName) {
   TVIConnectOptions *connectOptions = [TVIConnectOptions optionsWithToken:accessToken block:^(TVIConnectOptionsBuilder * _Nonnull builder) {
     if (self.localVideoTrack) {
-      builder.videoTracks = @[self.localVideoTrack];
+      builder.videoTracks = @[self.localVideoTrack, self.localScreenTrack];
     }
 
     if (self.localAudioTrack) {
