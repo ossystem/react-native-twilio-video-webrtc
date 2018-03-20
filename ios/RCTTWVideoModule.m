@@ -100,10 +100,12 @@ RCT_EXPORT_MODULE();
 }
 
 RCT_EXPORT_METHOD(startLocalVideo:(BOOL)screenShare) {
-  UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
-  self.screen = [[TVIScreenCapturer alloc] initWithView:rootViewController.view];
+  if (screenShare) {
+    UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
+    self.screen = [[TVIScreenCapturer alloc] initWithView:rootViewController.view];
 
-  self.localScreenTrack = [TVILocalVideoTrack trackWithCapturer:self.screen enabled:NO constraints:[self videoConstraints]];
+    self.localScreenTrack = [TVILocalVideoTrack trackWithCapturer:self.screen enabled:NO constraints:[self videoConstraints]];
+  }
 
   if ([TVICameraCapturer availableSources].count > 0) {
     self.camera = [[TVICameraCapturer alloc] init];
@@ -111,17 +113,6 @@ RCT_EXPORT_METHOD(startLocalVideo:(BOOL)screenShare) {
 
     self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.camera enabled:YES constraints:[self videoConstraints]];
   }
-  /*if (screenShare) {
-    UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
-    self.screen = [[TVIScreenCapturer alloc] initWithView:rootViewController.view];
-
-    self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.screen enabled:YES constraints:[self videoConstraints]];
-  } else if ([TVICameraCapturer availableSources].count > 0) {
-    self.camera = [[TVICameraCapturer alloc] init];
-    self.camera.delegate = self;
-
-    self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.camera enabled:YES constraints:[self videoConstraints]];
-  }*/
 }
 
 RCT_EXPORT_METHOD(startLocalAudio) {
@@ -130,7 +121,9 @@ RCT_EXPORT_METHOD(startLocalAudio) {
 
 RCT_EXPORT_METHOD(stopLocalVideo) {
   self.localVideoTrack = nil;
+  self.localScreenTrack = nil;
   self.camera = nil;
+  self.screen = nil;
 }
 
 RCT_EXPORT_METHOD(stopLocalAudio) {
@@ -285,7 +278,11 @@ RCT_EXPORT_METHOD(getStats) {
 RCT_EXPORT_METHOD(connect:(NSString *)accessToken roomName:(NSString *)roomName) {
   TVIConnectOptions *connectOptions = [TVIConnectOptions optionsWithToken:accessToken block:^(TVIConnectOptionsBuilder * _Nonnull builder) {
     if (self.localVideoTrack) {
-      builder.videoTracks = @[self.localVideoTrack, self.localScreenTrack];
+      if (self.localScreenTrack) {
+        builder.videoTracks = @[self.localVideoTrack, self.localScreenTrack];
+      } else {
+        builder.videoTracks = @[self.localVideoTrack];
+      }
     }
 
     if (self.localAudioTrack) {
