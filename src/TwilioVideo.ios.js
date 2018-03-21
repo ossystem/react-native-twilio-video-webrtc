@@ -119,6 +119,7 @@ export default class extends Component {
     this._eventEmitter = new NativeEventEmitter(TWVideoModule)
 
     this.setLocalVideoEnabled = this.setLocalVideoEnabled.bind(this)
+    this.setLocalScreenEnabled = this.setLocalScreenEnabled.bind(this)
     this.setLocalAudioEnabled = this.setLocalAudioEnabled.bind(this)
     this.flipCamera = this.flipCamera.bind(this)
     this.connect = this.connect.bind(this)
@@ -142,6 +143,10 @@ export default class extends Component {
    */
   setLocalVideoEnabled (enabled) {
     return TWVideoModule.setLocalVideoEnabled(enabled)
+  }
+
+  setLocalScreenEnabled (enabled) {
+    return TWVideoModule.setLocalScreenEnabled(enabled)
   }
 
   /**
