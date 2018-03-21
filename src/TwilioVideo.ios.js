@@ -130,7 +130,6 @@ export default class extends Component {
     this._registerEvents()
     this._startLocalVideo()
     this._startLocalAudio()
-    this.setBackCamera();
   }
 
   componentWillUnmount () {
@@ -162,13 +161,6 @@ export default class extends Component {
    */
   flipCamera () {
     TWVideoModule.flipCamera()
-  }
-
-  /**
-   * Set back device camera
-   */
-  setBackCamera () {
-    TWVideoModule.setBackCamera()
   }
 
   /**

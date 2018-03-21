@@ -108,7 +108,7 @@ RCT_EXPORT_METHOD(startLocalVideo:(BOOL)screenShare) {
   }
 
   if ([TVICameraCapturer availableSources].count > 0) {
-    self.camera = [[TVICameraCapturer alloc] init];
+    self.camera = [[TVICameraCapturer alloc] initWithSource:1];
     self.camera.delegate = self;
 
     self.localVideoTrack = [TVILocalVideoTrack trackWithCapturer:self.camera enabled:YES constraints:[self videoConstraints]];
@@ -167,17 +167,6 @@ RCT_EXPORT_METHOD(flipCamera) {
       }
     }
   }
-}
-
-RCT_EXPORT_METHOD(setBackCamera) {
-    if (self.camera.source == TVICameraCaptureSourceFrontCamera) {
-        [self.camera selectSource:TVICameraCaptureSourceBackCameraWide];
-        if (self.localVideoTrack) {
-            for (TVIVideoView *r in self.localVideoTrack.renderers) {
-                r.mirror = NO;
-            }
-        }
-    }
 }
 
 -(void)convertBaseTrackStats:(TVIBaseTrackStats *)stats result:(NSMutableDictionary *)result {
