@@ -173,7 +173,7 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         // Share your camera
         cameraCapturer = new CameraCapturer(
                 getContext(),
-                CameraCapturer.CameraSource.FRONT_CAMERA,
+                CameraCapturer.CameraSource.BACK_CAMERA,
                 new CameraCapturer.Listener() {
                     @Override
                     public void onFirstFrameAvailable() {
