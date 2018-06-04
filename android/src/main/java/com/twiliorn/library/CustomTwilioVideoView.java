@@ -44,6 +44,7 @@ import com.twilio.video.LocalVideoTrackStats;
 import com.twilio.video.Participant;
 import com.twilio.video.Room;
 import com.twilio.video.RoomState;
+import com.twilio.video.ScreenCapturer;
 import com.twilio.video.StatsListener;
 import com.twilio.video.StatsReport;
 import com.twilio.video.TrackStats;
@@ -123,8 +124,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     private static VideoView thumbnailVideoView;
     private static List<VideoTrack> participantVideoTracks = new ArrayList<VideoTrack>();
     private static LocalVideoTrack localVideoTrack;
+    private static LocalVideoTrack localScreenTrack;
 
     private static CameraCapturer cameraCapturer;
+    private static ScreenCapturer screenCapturer;
     private LocalAudioTrack localAudioTrack;
     private AudioManager audioManager;
     private int previousAudioMode;
@@ -192,6 +195,8 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
                 }
         );
 
+        screenCapturer = null;
+
         if (cameraCapturer.getSupportedFormats().size() > 0) {
             localVideoTrack = LocalVideoTrack.create(getContext(), true, cameraCapturer, buildVideoConstraints());
             if (thumbnailVideoView != null && localVideoTrack != null) {
@@ -199,6 +204,14 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             }
             setThumbnailMirror();
         }
+
+        // screenVideoTrack = LocalVideoTrack.create(this, true, screenCapturer);
+        // screenCaptureMenuItem.setIcon(R.drawable.ic_stop_screen_share_white_24dp);
+        // screenCaptureMenuItem.setTitle(R.string.stop_screen_share);
+        //
+        // localVideoView.setVisibility(View.VISIBLE);
+        // screenVideoTrack.addRenderer(localVideoView);
+
         connectToRoom();
     }
 
@@ -275,6 +288,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             localVideoTrack.release();
             localVideoTrack = null;
         }
+        if (localScreenTrack != null) {
+            localScreenTrack.release();
+            localScreenTrack = null;
+        }
 
         if (localAudioTrack != null) {
             localAudioTrack.release();
@@ -313,9 +330,15 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             connectOptionsBuilder.audioTracks(Collections.singletonList(localAudioTrack));
         }
 
+        List<LocalVideoTrack> videoTracks = new ArrayList<LocalVideoTrack>();
+
         if (localVideoTrack != null) {
-            connectOptionsBuilder.videoTracks(Collections.singletonList(localVideoTrack));
+            videoTracks.add(localVideoTrack);
         }
+        if (localScreenTrack != null) {
+            videoTracks.add(localScreenTrack);
+        }
+        connectOptionsBuilder.videoTracks(Collections.unmodifiableList(videoTracks));
 
         room = Video.connect(getContext(), connectOptionsBuilder.build(), roomListener());
     }
@@ -366,6 +389,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             localVideoTrack.release();
             localVideoTrack = null;
         }
+        if (localScreenTrack != null) {
+            localScreenTrack.release();
+            localScreenTrack = null;
+        }
     }
 
     // ===== BUTTON LISTENERS ======================================================================
@@ -397,6 +424,16 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
 
             WritableMap event = new WritableNativeMap();
             event.putBoolean("videoEnabled", enabled);
+            pushEvent(CustomTwilioVideoView.this, ON_VIDEO_CHANGED, event);
+        }
+    }
+
+    public void toggleScreen(boolean enabled) {
+        if (localScreenTrack != null) {
+            localScreenTrack.enable(enabled);
+
+            WritableMap event = new WritableNativeMap();
+            event.putBoolean("screenEnabled", enabled);
             pushEvent(CustomTwilioVideoView.this, ON_VIDEO_CHANGED, event);
         }
     }
