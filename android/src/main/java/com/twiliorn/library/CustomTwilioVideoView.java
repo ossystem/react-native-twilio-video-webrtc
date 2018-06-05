@@ -16,13 +16,19 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
+import android.media.projection.MediaProjectionManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringDef;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.Toast;
 
+import com.facebook.react.bridge.ActivityEventListener;
+import com.facebook.react.bridge.BaseActivityEventListener;
 import com.facebook.react.bridge.LifecycleEventListener;
+import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.bridge.WritableArray;
@@ -78,6 +84,7 @@ import static com.twiliorn.library.CustomTwilioVideoView.Events.ON_STATS_RECEIVE
 
 public class CustomTwilioVideoView extends View implements LifecycleEventListener {
     private static final String TAG = "CustomTwilioVideoView";
+    private static final int REQUEST_MEDIA_PROJECTION = 100;
 
     @Retention(RetentionPolicy.SOURCE)
     @StringDef({Events.ON_CAMERA_SWITCHED,
@@ -134,6 +141,40 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     private boolean disconnectedFromOnDestroy;
     private IntentFilter intentFilter;
     private BecomingNoisyReceiver myNoisyAudioStreamReceiver;
+    private final ScreenCapturer.Listener screenCapturerListener = new ScreenCapturer.Listener() {
+        @Override
+        public void onScreenCaptureError(String errorDescription) {
+            Log.e(TAG, "Screen capturer error: " + errorDescription);
+            // stopScreenCapture();
+            // notify about capture error
+        }
+
+        @Override
+        public void onFirstFrameAvailable() {
+            Log.d(TAG, "First frame from screen capturer available");
+        }
+    };
+
+    private final ActivityEventListener activityEventListener = new BaseActivityEventListener() {
+        @Override
+        public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent intent) {
+            reactApplicationContext.removeActivityEventListener(activityEventListener);
+
+            if (requestCode == REQUEST_MEDIA_PROJECTION) {
+                if (resultCode != AppCompatActivity.RESULT_OK) {
+                    Toast.makeText(themedReactContext.getCurrentActivity(), "failed to get screen sharing permission", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Toast.makeText(themedReactContext.getCurrentActivity(), "screen sharing permission granted", Toast.LENGTH_LONG).show();
+                screenCapturer = new ScreenCapturer(themedReactContext, resultCode, intent, screenCapturerListener);
+                localScreenTrack = LocalVideoTrack.create(themedReactContext, true, screenCapturer);
+
+                connectToRoom();
+            }
+        }
+    };
+
+    public ReactApplicationContext reactApplicationContext;
 
     public CustomTwilioVideoView(ThemedReactContext context) {
         super(context);
@@ -158,6 +199,20 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     }
 
     // ===== SETUP =================================================================================
+
+    private void requestScreenCapturePermission() {
+        reactApplicationContext.addActivityEventListener(activityEventListener);
+
+        Log.d(TAG, "Requesting permission to capture screen");
+        MediaProjectionManager mediaProjectionManager = (MediaProjectionManager)
+                themedReactContext.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+
+        // This initiates a prompt dialog for the user to confirm screen projection.
+        Log.d(TAG, "strngr " + themedReactContext.getClass().getName());
+        Log.d(TAG, "strngr " + themedReactContext.getCurrentActivity().getClass().getName());
+        themedReactContext.getCurrentActivity().startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(),
+                REQUEST_MEDIA_PROJECTION);
+    }
 
     private VideoConstraints buildVideoConstraints() {
         return new VideoConstraints.Builder()
@@ -195,8 +250,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
                 }
         );
 
-        screenCapturer = null;
-
         if (cameraCapturer.getSupportedFormats().size() > 0) {
             localVideoTrack = LocalVideoTrack.create(getContext(), true, cameraCapturer, buildVideoConstraints());
             if (thumbnailVideoView != null && localVideoTrack != null) {
@@ -204,13 +257,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             }
             setThumbnailMirror();
         }
-
-        // screenVideoTrack = LocalVideoTrack.create(this, true, screenCapturer);
-        // screenCaptureMenuItem.setIcon(R.drawable.ic_stop_screen_share_white_24dp);
-        // screenCaptureMenuItem.setTitle(R.string.stop_screen_share);
-        //
-        // localVideoView.setVisibility(View.VISIBLE);
-        // screenVideoTrack.addRenderer(localVideoView);
 
         connectToRoom();
     }
@@ -302,12 +348,16 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     // ====== CONNECTING ===========================================================================
 
     public void connectToRoomWrapper(String roomName, String accessToken) {
+        Toast.makeText(themedReactContext.getCurrentActivity(), "connect to room", Toast.LENGTH_LONG).show();
+
         this.roomName = roomName;
         this.accessToken = accessToken;
 
         Log.i("CustomTwilioVideoView", "Starting connect flow");
 
-        if (cameraCapturer == null) {
+        if (screenCapturer == null) {
+            requestScreenCapturePermission();
+        } else if (cameraCapturer == null) {
             createLocalMedia();
         } else {
             localAudioTrack = LocalAudioTrack.create(getContext(), true);
@@ -332,12 +382,12 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
 
         List<LocalVideoTrack> videoTracks = new ArrayList<LocalVideoTrack>();
 
-        if (localVideoTrack != null) {
-            videoTracks.add(localVideoTrack);
-        }
-        if (localScreenTrack != null) {
+        // if (localVideoTrack != null) {
+            // videoTracks.add(localVideoTrack);
+        // }
+        // if (localScreenTrack != null) {
             videoTracks.add(localScreenTrack);
-        }
+        // }
         connectOptionsBuilder.videoTracks(Collections.unmodifiableList(videoTracks));
 
         room = Video.connect(getContext(), connectOptionsBuilder.build(), roomListener());
@@ -429,12 +479,16 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     }
 
     public void toggleScreen(boolean enabled) {
-        if (localScreenTrack != null) {
-            localScreenTrack.enable(enabled);
+        if (screenCapturer == null) {
+            requestScreenCapturePermission();
+        } else {
+            if (localScreenTrack != null) {
+                localScreenTrack.enable(enabled);
 
-            WritableMap event = new WritableNativeMap();
-            event.putBoolean("screenEnabled", enabled);
-            pushEvent(CustomTwilioVideoView.this, ON_VIDEO_CHANGED, event);
+                WritableMap event = new WritableNativeMap();
+                event.putBoolean("screenEnabled", enabled);
+                pushEvent(CustomTwilioVideoView.this, ON_VIDEO_CHANGED, event);
+            }
         }
     }
 

@@ -11,6 +11,7 @@ package com.twiliorn.library;
 import android.support.annotation.Nullable;
 
 import com.facebook.react.bridge.ReadableArray;
+import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
@@ -42,6 +43,8 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
     private static final int GET_STATS = 6;
     private static final int TOGGLE_SCREEN = 7;
 
+    public ReactApplicationContext reactApplicationContext;
+
     @Override
     public String getName() {
         return REACT_CLASS;
@@ -49,7 +52,10 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
 
     @Override
     protected CustomTwilioVideoView createViewInstance(ThemedReactContext reactContext) {
-        return new CustomTwilioVideoView(reactContext);
+        CustomTwilioVideoView customTwilioVideoView = new CustomTwilioVideoView(reactContext);
+        customTwilioVideoView.reactApplicationContext = reactApplicationContext;
+        
+        return customTwilioVideoView;
     }
 
     @Override
@@ -117,7 +123,7 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
                 "toggleVideo", TOGGLE_VIDEO,
                 "toggleSound", TOGGLE_SOUND,
                 "getStats", GET_STATS,
-                "toggleScreen", TOGGLE_SCREEN,
+                "toggleScreen", TOGGLE_SCREEN
         );
     }
 }
