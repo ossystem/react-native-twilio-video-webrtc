@@ -43,7 +43,7 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
     private static final int GET_STATS = 6;
     private static final int TOGGLE_SCREEN = 7;
 
-    public ReactApplicationContext reactApplicationContext;
+    private ReactApplicationContext reactApplicationContext;
 
     @Override
     public String getName() {
@@ -53,8 +53,8 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
     @Override
     protected CustomTwilioVideoView createViewInstance(ThemedReactContext reactContext) {
         CustomTwilioVideoView customTwilioVideoView = new CustomTwilioVideoView(reactContext);
-        customTwilioVideoView.reactApplicationContext = reactApplicationContext;
-        
+        customTwilioVideoView.setReactApplicationContext(reactApplicationContext);
+
         return customTwilioVideoView;
     }
 
@@ -125,5 +125,9 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
                 "getStats", GET_STATS,
                 "toggleScreen", TOGGLE_SCREEN
         );
+    }
+
+    public void setReactApplicationContext(ReactApplicationContext reactApplicationContext) {
+        this.reactApplicationContext = reactApplicationContext;
     }
 }

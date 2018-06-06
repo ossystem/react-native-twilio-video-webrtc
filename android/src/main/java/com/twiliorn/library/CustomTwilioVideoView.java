@@ -112,6 +112,8 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         String ON_STATS_RECEIVED = "onStatsReceived";
     }
 
+
+    private ReactApplicationContext reactApplicationContext;
     private final ThemedReactContext themedReactContext;
     private final RCTEventEmitter eventEmitter;
 
@@ -178,8 +180,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         }
     };
 
-    public ReactApplicationContext reactApplicationContext;
-
     public CustomTwilioVideoView(ThemedReactContext context) {
         super(context);
         this.themedReactContext = context;
@@ -202,6 +202,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
     }
 
+    public void setReactApplicationContext(ReactApplicationContext reactApplicationContext) {
+        this.reactApplicationContext = reactApplicationContext;
+    }
+
     // ===== SETUP =================================================================================
 
     private void requestScreenCapturePermission() {
@@ -212,8 +216,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
                 themedReactContext.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
 
         // This initiates a prompt dialog for the user to confirm screen projection.
-        Log.d(TAG, "strngr " + themedReactContext.getClass().getName());
-        Log.d(TAG, "strngr " + themedReactContext.getCurrentActivity().getClass().getName());
         themedReactContext.getCurrentActivity().startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(),
                 REQUEST_MEDIA_PROJECTION);
     }
@@ -261,7 +263,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             }
             setThumbnailMirror();
         }
-
         connectToRoom();
     }
 
