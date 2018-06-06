@@ -165,11 +165,15 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
                     Toast.makeText(themedReactContext.getCurrentActivity(), "failed to get screen sharing permission", Toast.LENGTH_LONG).show();
                     return;
                 }
-                Toast.makeText(themedReactContext.getCurrentActivity(), "screen sharing permission granted", Toast.LENGTH_LONG).show();
                 screenCapturer = new ScreenCapturer(themedReactContext, resultCode, intent, screenCapturerListener);
                 localScreenTrack = LocalVideoTrack.create(themedReactContext, true, screenCapturer);
 
-                connectToRoom();
+                if (localParticipant != null) {
+                    localParticipant.addVideoTrack(localScreenTrack);
+
+                    // what's the point to ask to turn on screensharing with false toggleScreen argument?
+                    toggleScreen(true);
+                }
             }
         }
     };
@@ -338,7 +342,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             localScreenTrack.release();
             localScreenTrack = null;
         }
-
         if (localAudioTrack != null) {
             localAudioTrack.release();
             localAudioTrack = null;
@@ -348,16 +351,12 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     // ====== CONNECTING ===========================================================================
 
     public void connectToRoomWrapper(String roomName, String accessToken) {
-        Toast.makeText(themedReactContext.getCurrentActivity(), "connect to room", Toast.LENGTH_LONG).show();
-
         this.roomName = roomName;
         this.accessToken = accessToken;
 
         Log.i("CustomTwilioVideoView", "Starting connect flow");
 
-        if (screenCapturer == null) {
-            requestScreenCapturePermission();
-        } else if (cameraCapturer == null) {
+        if (cameraCapturer == null) {
             createLocalMedia();
         } else {
             localAudioTrack = LocalAudioTrack.create(getContext(), true);
@@ -382,12 +381,12 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
 
         List<LocalVideoTrack> videoTracks = new ArrayList<LocalVideoTrack>();
 
-        // if (localVideoTrack != null) {
-            // videoTracks.add(localVideoTrack);
-        // }
-        // if (localScreenTrack != null) {
+        if (localVideoTrack != null) {
+            videoTracks.add(localVideoTrack);
+        }
+        if (localScreenTrack != null) {
             videoTracks.add(localScreenTrack);
-        // }
+        }
         connectOptionsBuilder.videoTracks(Collections.unmodifiableList(videoTracks));
 
         room = Video.connect(getContext(), connectOptionsBuilder.build(), roomListener());
@@ -438,10 +437,12 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         if (localVideoTrack != null) {
             localVideoTrack.release();
             localVideoTrack = null;
+            cameraCapturer = null;
         }
         if (localScreenTrack != null) {
             localScreenTrack.release();
             localScreenTrack = null;
+            screenCapturer = null;
         }
     }
 
@@ -480,7 +481,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
 
     public void toggleScreen(boolean enabled) {
         if (screenCapturer == null) {
-            requestScreenCapturePermission();
+            // ask screen capture permission only if we don't have screen capturer and we are going to actually capture it
+            if (enabled) {
+              requestScreenCapturePermission();
+            }
         } else {
             if (localScreenTrack != null) {
                 localScreenTrack.enable(enabled);
