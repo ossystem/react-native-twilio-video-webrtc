@@ -864,4 +864,8 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         }
         setThumbnailMirror();
     }
+
+    public void takeLocalPicture(CameraCapturer.PictureListener photographer) {
+        cameraCapturer.takePicture(photographer);
+    }
 }
