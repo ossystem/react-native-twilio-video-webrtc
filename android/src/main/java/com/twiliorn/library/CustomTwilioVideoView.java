@@ -61,6 +61,7 @@ import com.twilio.video.StatsReport;
 import com.twilio.video.TrackPublication;
 import com.twilio.video.TwilioException;
 import com.twilio.video.Video;
+import com.twilio.video.VideoCodec;
 import com.twilio.video.VideoView;
 import com.twilio.video.VideoConstraints;
 import com.twilio.video.VideoDimensions;
@@ -382,6 +383,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
          */
         setAudioFocus(true);
         ConnectOptions.Builder connectOptionsBuilder = new ConnectOptions.Builder(this.accessToken);
+
+        // codec preference
+        connectOptionsBuilder.preferVideoCodecs(Arrays.asList(VideoCodec.H264,
+                  VideoCodec.VP8, VideoCodec.VP9));
 
         if (this.roomName != null) {
             connectOptionsBuilder.roomName(this.roomName);
