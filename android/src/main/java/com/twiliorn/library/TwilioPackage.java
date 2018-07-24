@@ -31,8 +31,11 @@ public class TwilioPackage implements ReactPackage {
 
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
+        CustomTwilioVideoViewManager customTwilioVideoViewManager = new CustomTwilioVideoViewManager();
+        customTwilioVideoViewManager.setReactApplicationContext(reactContext);
+
         return Arrays.<ViewManager>asList(
-                new CustomTwilioVideoViewManager(),
+                customTwilioVideoViewManager,
                 new TwilioRemotePreviewManager(),
                 new TwilioVideoPreviewManager()
         );

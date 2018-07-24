@@ -16,13 +16,19 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
+import android.media.projection.MediaProjectionManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringDef;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.Toast;
 
+import com.facebook.react.bridge.ActivityEventListener;
+import com.facebook.react.bridge.BaseActivityEventListener;
 import com.facebook.react.bridge.LifecycleEventListener;
+import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.bridge.WritableArray;
@@ -44,6 +50,7 @@ import com.twilio.video.LocalVideoTrackStats;
 import com.twilio.video.Participant;
 import com.twilio.video.Room;
 import com.twilio.video.RoomState;
+import com.twilio.video.ScreenCapturer;
 import com.twilio.video.StatsListener;
 import com.twilio.video.StatsReport;
 import com.twilio.video.TrackStats;
@@ -77,6 +84,7 @@ import static com.twiliorn.library.CustomTwilioVideoView.Events.ON_STATS_RECEIVE
 
 public class CustomTwilioVideoView extends View implements LifecycleEventListener {
     private static final String TAG = "CustomTwilioVideoView";
+    private static final int REQUEST_MEDIA_PROJECTION = 100;
 
     @Retention(RetentionPolicy.SOURCE)
     @StringDef({Events.ON_CAMERA_SWITCHED,
@@ -104,6 +112,8 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         String ON_STATS_RECEIVED = "onStatsReceived";
     }
 
+
+    private ReactApplicationContext reactApplicationContext;
     private final ThemedReactContext themedReactContext;
     private final RCTEventEmitter eventEmitter;
 
@@ -123,14 +133,52 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     private static VideoView thumbnailVideoView;
     private static List<VideoTrack> participantVideoTracks = new ArrayList<VideoTrack>();
     private static LocalVideoTrack localVideoTrack;
+    private static LocalVideoTrack localScreenTrack;
 
     private static CameraCapturer cameraCapturer;
+    private static ScreenCapturer screenCapturer;
     private LocalAudioTrack localAudioTrack;
     private AudioManager audioManager;
     private int previousAudioMode;
     private boolean disconnectedFromOnDestroy;
     private IntentFilter intentFilter;
     private BecomingNoisyReceiver myNoisyAudioStreamReceiver;
+    private final ScreenCapturer.Listener screenCapturerListener = new ScreenCapturer.Listener() {
+        @Override
+        public void onScreenCaptureError(String errorDescription) {
+            Log.e(TAG, "Screen capturer error: " + errorDescription);
+            // stopScreenCapture();
+            // notify about capture error
+        }
+
+        @Override
+        public void onFirstFrameAvailable() {
+            Log.d(TAG, "First frame from screen capturer available");
+        }
+    };
+
+    private final ActivityEventListener activityEventListener = new BaseActivityEventListener() {
+        @Override
+        public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent intent) {
+            reactApplicationContext.removeActivityEventListener(activityEventListener);
+
+            if (requestCode == REQUEST_MEDIA_PROJECTION) {
+                if (resultCode != AppCompatActivity.RESULT_OK) {
+                    Toast.makeText(themedReactContext.getCurrentActivity(), "failed to get screen sharing permission", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                screenCapturer = new ScreenCapturer(themedReactContext, resultCode, intent, screenCapturerListener);
+                localScreenTrack = LocalVideoTrack.create(themedReactContext, true, screenCapturer);
+
+                if (localParticipant != null) {
+                    localParticipant.addVideoTrack(localScreenTrack);
+
+                    // what's the point to ask to turn on screensharing with false toggleScreen argument?
+                    toggleScreen(true);
+                }
+            }
+        }
+    };
 
     public CustomTwilioVideoView(ThemedReactContext context) {
         super(context);
@@ -154,7 +202,23 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
     }
 
+    public void setReactApplicationContext(ReactApplicationContext reactApplicationContext) {
+        this.reactApplicationContext = reactApplicationContext;
+    }
+
     // ===== SETUP =================================================================================
+
+    private void requestScreenCapturePermission() {
+        reactApplicationContext.addActivityEventListener(activityEventListener);
+
+        Log.d(TAG, "Requesting permission to capture screen");
+        MediaProjectionManager mediaProjectionManager = (MediaProjectionManager)
+                themedReactContext.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+
+        // This initiates a prompt dialog for the user to confirm screen projection.
+        themedReactContext.getCurrentActivity().startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(),
+                REQUEST_MEDIA_PROJECTION);
+    }
 
     private VideoConstraints buildVideoConstraints() {
         return new VideoConstraints.Builder()
@@ -275,7 +339,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             localVideoTrack.release();
             localVideoTrack = null;
         }
-
+        if (localScreenTrack != null) {
+            localScreenTrack.release();
+            localScreenTrack = null;
+        }
         if (localAudioTrack != null) {
             localAudioTrack.release();
             localAudioTrack = null;
@@ -313,9 +380,15 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             connectOptionsBuilder.audioTracks(Collections.singletonList(localAudioTrack));
         }
 
+        List<LocalVideoTrack> videoTracks = new ArrayList<LocalVideoTrack>();
+
         if (localVideoTrack != null) {
-            connectOptionsBuilder.videoTracks(Collections.singletonList(localVideoTrack));
+            videoTracks.add(localVideoTrack);
         }
+        if (localScreenTrack != null) {
+            videoTracks.add(localScreenTrack);
+        }
+        connectOptionsBuilder.videoTracks(Collections.unmodifiableList(videoTracks));
 
         room = Video.connect(getContext(), connectOptionsBuilder.build(), roomListener());
     }
@@ -365,6 +438,12 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         if (localVideoTrack != null) {
             localVideoTrack.release();
             localVideoTrack = null;
+            cameraCapturer = null;
+        }
+        if (localScreenTrack != null) {
+            localScreenTrack.release();
+            localScreenTrack = null;
+            screenCapturer = null;
         }
     }
 
@@ -374,7 +453,7 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             CameraCapturer.CameraSource cameraSource = cameraCapturer.getCameraSource();
             final boolean isBackCamera = (cameraSource == CameraCapturer.CameraSource.BACK_CAMERA);
             if (thumbnailVideoView != null && thumbnailVideoView.getVisibility() == View.VISIBLE) {
-                thumbnailVideoView.setMirror(isBackCamera);
+                thumbnailVideoView.setMirror(!isBackCamera);
             }
         }
     }
@@ -398,6 +477,23 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             WritableMap event = new WritableNativeMap();
             event.putBoolean("videoEnabled", enabled);
             pushEvent(CustomTwilioVideoView.this, ON_VIDEO_CHANGED, event);
+        }
+    }
+
+    public void toggleScreen(boolean enabled) {
+        if (screenCapturer == null) {
+            // ask screen capture permission only if we don't have screen capturer and we are going to actually capture it
+            if (enabled) {
+              requestScreenCapturePermission();
+            }
+        } else {
+            if (localScreenTrack != null) {
+                localScreenTrack.enable(enabled);
+
+                WritableMap event = new WritableNativeMap();
+                event.putBoolean("screenEnabled", enabled);
+                pushEvent(CustomTwilioVideoView.this, ON_VIDEO_CHANGED, event);
+            }
         }
     }
 
@@ -767,5 +863,9 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
             localVideoTrack.addRenderer(v);
         }
         setThumbnailMirror();
+    }
+
+    public void takeLocalPicture(CameraCapturer.PictureListener photographer) {
+        cameraCapturer.takePicture(photographer);
     }
 }

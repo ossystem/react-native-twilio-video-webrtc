@@ -11,6 +11,7 @@ package com.twiliorn.library;
 import android.support.annotation.Nullable;
 
 import com.facebook.react.bridge.ReadableArray;
+import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
@@ -40,6 +41,9 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
     private static final int TOGGLE_VIDEO = 4;
     private static final int TOGGLE_SOUND = 5;
     private static final int GET_STATS = 6;
+    private static final int TOGGLE_SCREEN = 7;
+
+    private ReactApplicationContext reactApplicationContext;
 
     @Override
     public String getName() {
@@ -48,7 +52,10 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
 
     @Override
     protected CustomTwilioVideoView createViewInstance(ThemedReactContext reactContext) {
-        return new CustomTwilioVideoView(reactContext);
+        CustomTwilioVideoView customTwilioVideoView = new CustomTwilioVideoView(reactContext);
+        customTwilioVideoView.setReactApplicationContext(reactApplicationContext);
+
+        return customTwilioVideoView;
     }
 
     @Override
@@ -75,6 +82,10 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
                 break;
             case GET_STATS:
                 view.getStats();
+                break;
+            case TOGGLE_SCREEN:
+                Boolean screenEnabled = args.getBoolean(0);
+                view.toggleScreen(screenEnabled);
                 break;
         }
     }
@@ -111,7 +122,12 @@ public class CustomTwilioVideoViewManager extends SimpleViewManager<CustomTwilio
                 "switchCamera", SWITCH_CAMERA,
                 "toggleVideo", TOGGLE_VIDEO,
                 "toggleSound", TOGGLE_SOUND,
-                "getStats", GET_STATS
+                "getStats", GET_STATS,
+                "toggleScreen", TOGGLE_SCREEN
         );
+    }
+
+    public void setReactApplicationContext(ReactApplicationContext reactApplicationContext) {
+        this.reactApplicationContext = reactApplicationContext;
     }
 }
