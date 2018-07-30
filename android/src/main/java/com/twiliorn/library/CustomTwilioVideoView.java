@@ -8,6 +8,7 @@
  */
 package com.twiliorn.library;
 
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -36,6 +37,7 @@ import com.facebook.react.uimanager.events.RCTEventEmitter;
 import com.twilio.video.BaseTrackStats;
 import com.twilio.video.CameraCapturer;
 import com.twilio.video.ConnectOptions;
+import com.twilio.video.H264Codec;
 import com.twilio.video.LocalParticipant;
 import com.twilio.video.LocalAudioTrack;
 import com.twilio.video.LocalAudioTrackStats;
@@ -65,10 +67,15 @@ import com.twilio.video.VideoCodec;
 import com.twilio.video.VideoView;
 import com.twilio.video.VideoConstraints;
 import com.twilio.video.VideoDimensions;
+import com.twilio.video.Vp8Codec;
+
+import org.webrtc.MediaCodecVideoDecoder;
+import org.webrtc.MediaCodecVideoEncoder;
 import org.webrtc.voiceengine.WebRtcAudioManager;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -183,7 +190,7 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
                 localScreenTrack = LocalVideoTrack.create(themedReactContext, true, screenCapturer);
 
                 if (localParticipant != null) {
-                    localParticipant.addVideoTrack(localScreenTrack);
+                    localParticipant.publishTrack(localScreenTrack);
 
                     // what's the point to ask to turn on screensharing with false toggleScreen argument?
                     toggleScreen(true);
@@ -385,8 +392,10 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         ConnectOptions.Builder connectOptionsBuilder = new ConnectOptions.Builder(this.accessToken);
 
         // codec preference
-        connectOptionsBuilder.preferVideoCodecs(Arrays.asList(VideoCodec.H264,
-                  VideoCodec.VP8, VideoCodec.VP9));
+        boolean isH264Supported = MediaCodecVideoDecoder.isH264HwSupported() && MediaCodecVideoEncoder.isH264HwSupported();
+        VideoCodec videoCodec = isH264Supported ? (new H264Codec()) : (new Vp8Codec());
+
+        connectOptionsBuilder.preferVideoCodecs(Collections.singletonList(videoCodec));
 
         if (this.roomName != null) {
             connectOptionsBuilder.roomName(this.roomName);
